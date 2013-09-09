@@ -1,0 +1,12 @@
+/node_modules
+/packages
+obj
+*.log
+*.dll
+!/lib/clr/*.dll
+*.pdb
+*.suo
+*.csproj.user
+
+
+
