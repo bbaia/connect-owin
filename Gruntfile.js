@@ -31,6 +31,26 @@
             }
         },
 
+        jshint: {
+            options: {
+                node: true,
+                bitwise: true,
+                camelcase: true,
+                eqeqeq: true,
+                immed: true,
+                latedef: true,
+                newcap: true,
+                noarg: true,
+                quotmark: 'single',
+                undef: true,
+                unused: true,
+                strict: true,
+                trailing: true,
+                indent: 4
+            },
+            src: [ 'lib/*.js' ]
+        },
+
         mochaTest: {
             test: {
                 options: {
@@ -61,7 +81,8 @@
     // Tasks definition
 
     grunt.registerTask('build', [
-        'msbuild:src'
+        'msbuild:src',
+        'jshint:src'
     ]);
 
     grunt.registerTask('test', [
