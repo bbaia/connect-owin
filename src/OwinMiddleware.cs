@@ -211,8 +211,6 @@ namespace Connect.Owin
                 }
 
                 // Serialize response body to a byte[]
-                // Fix marshalling of empty byte[]/Buffer
-                // https://github.com/tjanczuk/edge/pull/69
                 byte[] content = responseBody.ToArray();
                 if (content.Length > 0)
                 {
