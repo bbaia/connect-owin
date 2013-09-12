@@ -112,6 +112,8 @@ Then go to http://localhost:3000/node. This should display a message from an exp
 If you go to http://localhost:3000/net, you should see a similar message from the .NET OWIN application 
 in `Owin.Connect.Examples.Hello.dll` plugged in as a middleware to the express pipeline.
 
+_More samples available @ [connect-owin-samples](https://github.com/bbaia/connect-owin-samples/)_
+
 ### Running tests
 
 `mocha` is used to run tests:
