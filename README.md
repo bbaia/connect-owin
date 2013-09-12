@@ -2,7 +2,7 @@
 
 Implement node.js [connect middleware](http://www.senchalabs.org/connect/) in .NET using [OWIN](http://owin.org/)
 
-This is a fork of Tomasz Janczuk's [original code](https://github.com/tjanczuk/edge-connect/);
+This is a fork of Tomasz Janczuk's [original code](https://github.com/bbaia/edge-connect/);
 thanks go to him for getting this thing started!
 
 ## Introduction
@@ -86,8 +86,7 @@ You can build sources, run tests and preview the sample by using the default Gru
 
 ### Building sources
 
-The library needs to be built first. Once we arrive in a stable place, 
-binaries in `lib\clr` will be checked into git to make consuming `connect-owin` easier.
+The library needs to be built to use current development code:
 
 	$ grunt build
 

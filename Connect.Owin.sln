@@ -7,6 +7,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "connect-owin", "connect-owi
 		.gitignore = .gitignore
 		.npmignore = .npmignore
 		Gruntfile.js = Gruntfile.js
+		HISTORY.md = HISTORY.md
 		LICENCE = LICENCE
 		package.json = package.json
 		README.md = README.md
