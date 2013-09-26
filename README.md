@@ -86,11 +86,9 @@ You can build sources, run tests and preview the sample by using the default Gru
 
 ### Building sources
 
-The library needs to be built first:
-
 	$ grunt build
 
-The build creates the `lib\clr` directory with `Owin.dll` and `Connect.Owin.dll` files.
+The build creates the `lib\clr\Connect.Owin.dll` file required by the `lib\connect-owin.js` library.
 
 ### Running the sample
 
@@ -118,6 +116,6 @@ _More samples available @ [connect-owin-samples](https://github.com/bbaia/connec
 
 ### Running tests
 
-`mocha` is used to run tests:
-
 	$ grunt test
+
+`mocha` is used to run tests.

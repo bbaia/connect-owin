@@ -20,6 +20,9 @@
                 verbosity: 'quiet',
                 version: 4.0
             },
+            all: {
+                src: ['Connect.Owin.sln']
+            },
             src: {
                 src: ['src/Connect.Owin.csproj']
             },
@@ -86,14 +89,21 @@
     ]);
 
     grunt.registerTask('test', [
+        'build',
         'msbuild:test',
         'mochaTest'
     ]);
 
     grunt.registerTask('hello', [
+        'build',
         'msbuild:hello',
         'connect:hello'
     ]);
 
-    grunt.registerTask('default', ['build', 'test', 'hello']);
+    grunt.registerTask('default', [
+        'msbuild:all',
+        'jshint:src',
+        'mochaTest',
+        'connect:hello'
+    ]);
 };
