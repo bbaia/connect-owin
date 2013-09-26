@@ -86,9 +86,11 @@ You can build sources, run tests and preview the sample by using the default Gru
 
 ### Building sources
 
-The library needs to be built to use current development code:
+The library needs to be built first:
 
 	$ grunt build
+
+The build creates the `lib\clr` directory with `Owin.dll` and `Connect.Owin.dll` files.
 
 ### Running the sample
 

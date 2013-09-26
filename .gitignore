@@ -3,7 +3,6 @@
 obj
 *.log
 *.dll
-!/lib/clr/*.dll
 *.pdb
 *.suo
 *.csproj.user
