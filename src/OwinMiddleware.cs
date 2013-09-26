@@ -103,7 +103,7 @@ namespace Connect.Owin
             return (owinMiddlewares.Count - 1);
         }
 
-        public async Task<object> Handle(IDictionary<string, object> env)
+        public Task<object> Handle(IDictionary<string, object> input)
         {
             /*
              * This method invokes the actual OWIN middleware to process the HTTP request. 
@@ -118,6 +118,7 @@ namespace Connect.Owin
              * - owin.RequestHeaders
              * - owin.RequestBody
              * - connect-owin.appId
+             * - connect-owin.*Func
              * - node.*
              * 
              * Most of the owin.* properties are already in the format required by the OWIN spec. 
@@ -133,30 +134,27 @@ namespace Connect.Owin
              * According to RFC 2616, headers field names are case-insensitive. 
              * IDictionary<string, string[]> instances for request/response headers must be case-insensitive.
              * 
-             * The connect-owin.appId is the identifier returned from the Configure method that should be used to dispatch
+             * The connect-owin.appId is the identifier returned from the Initialize method that should be used to dispatch
              * the request to appropriate middleware.
+             * 
+             * The connect-owin.*Func properties are node.js functions that configure the response.
              * 
              * The node.* is an arbitrary set of properties specified by node.js developer either at the time of initialization, or
              * per-request via connect middleware running before the owin middleware. Typically they will contain proxies to 
              * node.js functions exported to .NET in the form of Func<object,Task<object>>. 
              * 
              * This method must pre-process the OWIN environment, invoke the OWIN middleware, post-process the resulting OWIN environment,
-             * and return it as the object result of this function. 
-             * 
-             * Postprocessing of the OWIN environment after invoking the OWIN application must:
-             * - remove all node.* entries from the dictionary. This is required because we cannot marshal Func<object,Task<object>> back to node.js at this time.
-             * - remove owin.Request* properties
-             * - convert owin.ResponseBody to a byte[] and store it back in owin.ResponseBody
+             * and return a boolean indicating whether the connect pipeline continue running.
              * 
              * Future: non-byte[] content types and full streaming support (basically we will be able to marshal node.js Stream as a .NET Stream from node.js)
              */
 
-            // Extract appId
-            int owinAppId = GetValueOrDefault<int>(env, "connect-owin.appId", -1);
+            // Javascript functions to complete before returning back to node.js
+            IList<Task> jsTasks = new List<Task>();
 
             // Convert request headers to IDictionary<string, string[]>
             IDictionary<string, string[]> requestHeaders = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-            IDictionary<string, object> nodeRequestHeaders = (IDictionary<string, object>)env["owin.RequestHeaders"];
+            IDictionary<string, object> nodeRequestHeaders = (IDictionary<string, object>)input["owin.RequestHeaders"];
             foreach (KeyValuePair<string, object> header in nodeRequestHeaders)
             {
                 if (header.Value is object[])
@@ -168,26 +166,74 @@ namespace Connect.Owin
                     requestHeaders.Add(header.Key, new string[] { header.Value.ToString() });
                 }
             }
-            env["owin.RequestHeaders"] = requestHeaders;
+            input["owin.RequestHeaders"] = requestHeaders;
 
             // Create memory stream around request body
-            byte[] body = GetValueOrDefault<byte[]>(env, "owin.RequestBody", new byte[0]);
-            env["owin.RequestBody"] = body.Length > 0 ? new MemoryStream(body) : Stream.Null;
+            byte[] body = GetValueOrDefault<byte[]>(input, "owin.RequestBody", new byte[0]);
+            input["owin.RequestBody"] = body.Length > 0 ? new MemoryStream(body) : Stream.Null;
 
-            // Create response OWIN properties for the application to write to
-            MemoryStream responseBody = new MemoryStream();
-            env["owin.ResponseBody"] = responseBody;
-            Dictionary<string, string[]> responseHeaders = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-            env["owin.ResponseHeaders"] = responseHeaders;
+            // Create response body stream for the application to write to
+            Func<object, Task<object>> writeFunc = GetValueOrDefault<Func<object, Task<object>>>(input, "connect-owin.writeFunc", null);
+            input["owin.ResponseBody"] = new OwinMiddlewareResponseStream(
+                (buffer, offset, count) =>
+                {
+                    if (count > 0)
+                    {
+                        if (buffer.Length != count)
+                        {
+                            // Trim buffer
+                            byte[] data = new byte[count];
+                            Array.Copy(buffer, data, count);
+                            buffer = data;
+                        }
+                        jsTasks.Add(writeFunc(buffer));
+                    }
+                });
+            
+            // Create response headers for the application to write to
+            Func<object, Task<object>> setHeaderFunc = GetValueOrDefault<Func<object, Task<object>>>(input, "connect-owin.setHeaderFunc", null);
+            Func<object, Task<object>> removeHeaderFunc = GetValueOrDefault<Func<object, Task<object>>>(input, "connect-owin.removeHeaderFunc", null);
+            Func<object, Task<object>> removeAllHeadersFunc = GetValueOrDefault<Func<object, Task<object>>>(input, "connect-owin.removeAllHeadersFunc", null);
+            input["owin.ResponseHeaders"] = new OwinMiddlewareDictionary<string, string[]>(
+                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase),
+                (key, value) =>
+                {
+                    IDictionary<string, string[]> header = new Dictionary<string, string[]>(1);
+                    header.Add(key, value);
+                    jsTasks.Add(setHeaderFunc(header));
+                },
+                (key) =>
+                {
+                    jsTasks.Add(removeHeaderFunc(key));
+                },
+                () =>
+                {
+                    jsTasks.Add(removeAllHeadersFunc(null));
+                });
 
             // Other data
-            env["owin.Version"] = "1.0";
+            input["owin.Version"] = "1.0";
             // TODO: request cancel/abort from the server
             CancellationTokenSource cts = new CancellationTokenSource();
-            env["owin.CallCancelled"] = cts.Token;
+            input["owin.CallCancelled"] = cts.Token;
+
+            // Create OWIN environment dictionary
+            Func<object, Task<object>> setStatusCodeFunc = GetValueOrDefault<Func<object, Task<object>>>(input, "connect-owin.setStatusCodeFunc", null);
+            IDictionary<string, object> env = new OwinMiddlewareDictionary<string, object>(input,
+                (key, value) =>
+                {
+                    if (key == "owin.ResponseStatusCode")
+                    {
+                        // Set response status code
+                        jsTasks.Add(setStatusCodeFunc((int)value));
+                    }
+                },
+                null,
+                null);
 
             // Run the OWIN app
-            return await owinMiddlewares[owinAppId](env).ContinueWith<object>((task) =>
+            int owinAppId = GetValueOrDefault<int>(input, "connect-owin.appId", -1);
+            return owinMiddlewares[owinAppId](env).ContinueWith<object>((task) =>
             {
                 if (task.IsFaulted)
                 {
@@ -199,36 +245,9 @@ namespace Connect.Owin
                     throw new InvalidOperationException("The OWIN application has cancelled processing of the request.");
                 }
 
-                // Remove all non-response entries from env
-                List<string> keys = new List<string>(env.Keys);
-                foreach (string key in keys)
-                {
-                    if (!key.StartsWith("owin.Response") &&
-                        !key.StartsWith("connect-owin."))
-                    {
-                        env.Remove(key);
-                    }
-                }
+                Task.WaitAll(jsTasks.ToArray());
 
-                // Serialize response body to a byte[]
-                byte[] content = responseBody.ToArray();
-                if (content.Length > 0)
-                {
-                    env["owin.ResponseBody"] = content;
-                }
-                else
-                {
-                    env.Remove("owin.ResponseBody");
-                }
-
-                if (env.ContainsKey("owin.ResponseStatusCode"))
-                {
-                    // Fix use of HttpStatusCode enum for 'owin.ResponseStatusCode'
-                    env["owin.ResponseStatusCode"] = (int)env["owin.ResponseStatusCode"];
-                }
-
-                // Return the post-processed env back to node.js
-                return env;
+                return GetValueOrDefault<bool>(env, "connect-owin.continue", false);
             });
         }
 
@@ -261,6 +280,193 @@ namespace Connect.Owin
             return parameters
                 .Zip(parameterTypes, (pi, t) => pi.ParameterType == t)
                 .All(b => b);
+        }
+
+        class OwinMiddlewareDictionary<K, V> : IDictionary<K, V>
+        {
+            private IDictionary<K, V> innerDictionary;
+            private Action<K, V> onSetAction;
+            private Action<K> onRemoveAction;
+            private Action onClearAction;
+
+            public OwinMiddlewareDictionary(
+                IDictionary<K, V> innerDictionary,
+                Action<K, V> onSetAction,
+                Action<K> onRemoveAction,
+                Action onClearAction)
+            {
+                this.innerDictionary = innerDictionary;
+
+                this.onSetAction = onSetAction;
+                this.onRemoveAction = onRemoveAction;
+                this.onClearAction = onClearAction;
+            }
+
+            public void Add(K key, V value)
+            {
+                this.innerDictionary.Add(key, value);
+
+                // Set
+                if (this.onSetAction != null) this.onSetAction(key, value);
+            }
+
+            public bool ContainsKey(K key)
+            {
+                return this.innerDictionary.ContainsKey(key);
+            }
+
+            public ICollection<K> Keys
+            {
+                get { return this.innerDictionary.Keys; }
+            }
+
+            public bool Remove(K key)
+            {
+                bool result = this.innerDictionary.Remove(key);
+
+                // Remove
+                if (this.onRemoveAction != null) this.onRemoveAction(key);
+
+                return result;
+            }
+
+            public bool TryGetValue(K key, out V value)
+            {
+                return this.innerDictionary.TryGetValue(key, out value);
+            }
+
+            public ICollection<V> Values
+            {
+                get { return this.innerDictionary.Values; }
+            }
+
+            public V this[K key]
+            {
+                get { return this.innerDictionary[key]; }
+                set
+                {
+                    this.innerDictionary[key] = value;
+
+                    // Set
+                    if (this.onSetAction != null) this.onSetAction(key, value);
+                }
+            }
+
+            public void Add(KeyValuePair<K, V> item)
+            {
+                this.innerDictionary.Add(item);
+
+                // Set
+                if (this.onSetAction != null) this.onSetAction(item.Key, item.Value);
+            }
+
+            public void Clear()
+            {
+                this.innerDictionary.Clear();
+
+                // Clear
+                if (this.onClearAction != null) this.onClearAction();
+            }
+
+            public bool Contains(KeyValuePair<K, V> item)
+            {
+                return this.innerDictionary.Contains(item);
+            }
+
+            public void CopyTo(KeyValuePair<K, V>[] array, int arrayIndex)
+            {
+                this.innerDictionary.CopyTo(array, arrayIndex);
+            }
+
+            public int Count
+            {
+                get { return this.innerDictionary.Count; }
+            }
+
+            public bool IsReadOnly
+            {
+                get { return this.innerDictionary.IsReadOnly; }
+            }
+
+            public bool Remove(KeyValuePair<K, V> item)
+            {
+                bool result = this.innerDictionary.Remove(item);
+
+                // Remove
+                if (this.onRemoveAction != null) this.onRemoveAction(item.Key);
+
+                return result;
+            }
+
+            public IEnumerator<KeyValuePair<K, V>> GetEnumerator()
+            {
+                return this.innerDictionary.GetEnumerator();
+            }
+
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+            {
+                return ((System.Collections.IEnumerable)this.innerDictionary).GetEnumerator();
+            }
+        }
+
+        class OwinMiddlewareResponseStream : Stream
+        {
+            private Action<byte[], int, int> onWriteAction;
+
+            public OwinMiddlewareResponseStream(Action<byte[], int, int> onWriteAction)
+            {
+                this.onWriteAction = onWriteAction;
+            }
+
+            public override bool CanRead
+            {
+                get { return false; }
+            }
+
+            public override bool CanWrite
+            {
+                get { return true; }
+            }
+
+            public override bool CanSeek
+            {
+                get { return false; }
+            }
+
+            public override long Position
+            {
+                get { throw new NotSupportedException("Seeking is not supported on this stream."); }
+                set { throw new NotSupportedException("Seeking is not supported on this stream."); }
+            }
+
+            public override long Length
+            {
+                get { throw new NotSupportedException("Seeking is not supported on this stream."); }
+            }
+
+            public override void SetLength(long value)
+            {
+                throw new NotSupportedException("Seeking is not supported on this stream.");
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                throw new NotSupportedException("Reading is not supported on this stream.");
+            }
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                if (this.onWriteAction != null) this.onWriteAction(buffer, offset, count);
+            }
+
+            public override long Seek(long offset, SeekOrigin origin)
+            {
+                throw new NotSupportedException("Seeking is not supported on this stream.");
+            }
+
+            public override void Flush()
+            {
+            }
         }
     }
 }
