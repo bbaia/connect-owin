@@ -1,6 +1,8 @@
 # [connect-owin](https://github.com/bbaia/connect-owin/) 
 
-Implement node.js [connect middleware](http://www.senchalabs.org/connect/) in .NET using [OWIN](http://owin.org/)
+Implement node.js [connect middleware](http://www.senchalabs.org/connect/) in .NET using [OWIN](http://owin.org/).
+
+Versions are incremented according to [semver](http://semver.org/).
 
 This is a fork of Tomasz Janczuk's [original code](https://github.com/bbaia/edge-connect/);
 thanks go to him for getting this thing started!
