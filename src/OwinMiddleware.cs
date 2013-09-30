@@ -177,6 +177,7 @@ namespace Connect.Owin
             input["owin.ResponseBody"] = new OwinMiddlewareResponseStream(
                 (buffer, offset, count) =>
                 {
+                    // On write
                     if (count > 0)
                     {
                         if (buffer.Length != count)
@@ -198,16 +199,19 @@ namespace Connect.Owin
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase),
                 (key, value) =>
                 {
+                    // On set header
                     IDictionary<string, string[]> header = new Dictionary<string, string[]>(1);
                     header.Add(key, value);
                     jsTasks.Add(setHeaderFunc(header));
                 },
                 (key) =>
                 {
+                    // On remove header
                     jsTasks.Add(removeHeaderFunc(key));
                 },
                 () =>
                 {
+                    // On clear headers
                     jsTasks.Add(removeAllHeadersFunc(null));
                 });
 
@@ -222,19 +226,39 @@ namespace Connect.Owin
             IDictionary<string, object> env = new OwinMiddlewareDictionary<string, object>(input,
                 (key, value) =>
                 {
-                    if (key == "owin.ResponseStatusCode")
+                    // On set OWIN variable
+                    switch (key)
                     {
-                        // Set response status code
-                        jsTasks.Add(setStatusCodeFunc((int)value));
+                        case "owin.ResponseStatusCode":
+                            // Set response status code
+                            jsTasks.Add(setStatusCodeFunc((int)value));
+                            break;
+                        case "owin.ResponseBody":
+                            throw new InvalidOperationException("Cannot set 'owin.ResponseBody'. Use provided stream instead.");
+                        case "owin.ResponseHeaders":
+                            throw new InvalidOperationException("Cannot set 'owin.ResponseHeaders'. Use provided dictionary instead.");
                     }
                 },
-                null,
-                null);
+                (key) =>
+                {
+                    // On remove OWIN variable
+                    if (key.StartsWith("owin."))
+                    {
+                        throw new InvalidOperationException("Cannot remove OWIN environment data.");
+                    }
+                },
+                () =>
+                {
+                    // On clear OWIN variables
+                    throw new InvalidOperationException("Cannot clear OWIN environment dictionary.");
+                });
 
             // Run the OWIN app
             int owinAppId = GetValueOrDefault<int>(input, "connect-owin.appId", -1);
             return owinMiddlewares[owinAppId](env).ContinueWith<object>((task) =>
             {
+                Task.WaitAll(jsTasks.ToArray());
+
                 if (task.IsFaulted)
                 {
                     throw task.Exception;
@@ -244,8 +268,6 @@ namespace Connect.Owin
                 {
                     throw new InvalidOperationException("The OWIN application has cancelled processing of the request.");
                 }
-
-                Task.WaitAll(jsTasks.ToArray());
 
                 return GetValueOrDefault<bool>(env, "connect-owin.continue", false);
             });
