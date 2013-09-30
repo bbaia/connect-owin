@@ -2,6 +2,7 @@
 !/lib/connect-owin.js
 !/lib/clr/Owin.dll
 !/lib/clr/Connect.Owin.dll
+!HISTORY.md
 !LICENCE
 !package.json
 !README.md
