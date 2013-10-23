@@ -2,7 +2,7 @@
     'use strict';
 
     // Load all grunt tasks
-    require('matchdep').filterDev('grunt-*').forEach(grunt.loadNpmTasks);
+    require('load-grunt-tasks')(grunt);
 
     // Project configuration
     grunt.initConfig({
