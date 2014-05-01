@@ -73,7 +73,7 @@
                     keepalive: true,
                     middleware: function (connect, options) {
                         return [
-                            require('./')(__dirname + '\\examples\\hello\\Connect.Owin.Examples.Hello.dll')
+                            require('./')(__dirname + '/examples/hello/Connect.Owin.Examples.Hello.dll')
                         ];
                     }
                 }
