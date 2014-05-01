@@ -13,7 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "connect-owin", "connect-owi
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connect.Owin.Examples.Hello", "examples\Hello\Connect.Owin.Examples.Hello.csproj", "{B2806E92-C350-437E-BC30-23961F8B4572}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connect.Owin.Examples.Hello", "examples\hello\Connect.Owin.Examples.Hello.csproj", "{B2806E92-C350-437E-BC30-23961F8B4572}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connect.Owin", "src\Connect.Owin.csproj", "{9D47CACF-B76A-45F4-A662-121977E65759}"
 EndProject
@@ -23,7 +23,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{2A
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "hello", "hello", "{B9CD2B5B-8DA5-4F81-A234-93761ED36A95}"
 	ProjectSection(SolutionItems) = preProject
-		examples\Hello\server.js = examples\Hello\server.js
+		examples\hello\server.js = examples\hello\server.js
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{FAB99217-E314-4BA3-8D12-22F9C106F8A2}"
