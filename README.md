@@ -66,13 +66,13 @@ owin({
 
 ## Requirements
 
-* Windows
+* Windows, Linux or MacOS
 * [node.js](http://nodejs.org/) 0.8.x or later
-* [.NET Framework 4.5](http://www.microsoft.com/en-us/download/details.aspx?id=30653)
+* [.NET Framework 4.5](http://www.microsoft.com/en-us/download/details.aspx?id=30653) or [Mono 3.4](http://www.mono-project.com/)
 
 ## Building
 
-[Grunt](http://gruntjs.com/) is used to build, test and preview the sample.
+[Grunt](http://gruntjs.com/) is used to build, test and preview the sample on all platforms.
 
 First, install `connect-owin` dependencies:
 
