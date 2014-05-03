@@ -141,6 +141,16 @@ namespace Connect.Owin.Tests
             await w.FlushAsync();
         }
 
+        public static async Task ShouldGetResponseHeadersAndBody(IDictionary<string, object> env)
+        {
+            env["owin.ResponseStatusCode"] = 200;
+            ((IDictionary<string, string[]>)env["owin.ResponseHeaders"]).Add(
+                "Content-Type", new string[] { "mocha/test" });
+            StreamWriter w = new StreamWriter((Stream)env["owin.ResponseBody"]);
+            w.Write("Hello from C#");
+            await w.FlushAsync();
+        }
+
         public static Task ShouldGetResponseStatusCode(IDictionary<string, object> env)
         {
             env["owin.ResponseStatusCode"] = 201;

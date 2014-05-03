@@ -204,6 +204,21 @@ describe('owin()', function () {
                 .expect(200, 'Hello from C#', done);
         });
 
+        it('should get `owin.ResponseHeaders` and `owin.ResponseBody`', function (done) {
+            var app = connect();
+
+            app.use(owin({
+                assemblyFile: 'test/Connect.Owin.Tests.dll',
+                typeName: 'Connect.Owin.Tests.OwinSpecTests',
+                methodName: 'ShouldGetResponseHeadersAndBody'
+            }));
+
+            request(app)
+                .get('/')
+                .expect('Content-Type', 'mocha/test')
+                .expect(200, 'Hello from C#', done);
+        });
+
         it('should get `owin.ResponseStatusCode`', function (done) {
             var app = connect();
 

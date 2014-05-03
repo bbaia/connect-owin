@@ -103,7 +103,7 @@ namespace Connect.Owin
             return (owinMiddlewares.Count - 1);
         }
 
-        public Task<object> Handle(IDictionary<string, object> input)
+        public async Task<object> Handle(IDictionary<string, object> input)
         {
             /*
              * This method invokes the actual OWIN middleware to process the HTTP request. 
@@ -149,8 +149,8 @@ namespace Connect.Owin
              * Future: non-byte[] content types and full streaming support (basically we will be able to marshal node.js Stream as a .NET Stream from node.js)
              */
 
-            // Javascript functions to complete before returning back to node.js
-            IList<Task> jsTasks = new List<Task>();
+            // Async tasks to complete before returning back to node.js
+            IList<Task> asyncTasks = new List<Task>();
 
             // Convert request headers to IDictionary<string, string[]>
             IDictionary<string, string[]> requestHeaders = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
@@ -174,8 +174,8 @@ namespace Connect.Owin
 
             // Create response body stream for the application to write to
             Func<object, Task<object>> writeFunc = GetValueOrDefault<Func<object, Task<object>>>(input, "connect-owin.writeFunc", null);
-            input["owin.ResponseBody"] = new OwinMiddlewareResponseStream(
-                (buffer, offset, count) =>
+            input["owin.ResponseBody"] = new OwinMiddlewareResponseStream(asyncTasks, 
+                async (buffer, offset, count) =>
                 {
                     // On write
                     if (count > 0)
@@ -187,7 +187,11 @@ namespace Connect.Owin
                             Array.Copy(buffer, data, count);
                             buffer = data;
                         }
-                        jsTasks.Add(writeFunc(buffer));
+                        await Task.WhenAll(asyncTasks.ToArray());
+                        asyncTasks.Clear();
+                        Task writeTask = writeFunc(buffer);
+                        asyncTasks.Add(writeTask);
+                        await writeTask;
                     }
                 });
             
@@ -202,17 +206,17 @@ namespace Connect.Owin
                     // On set header
                     IDictionary<string, string[]> header = new Dictionary<string, string[]>(1);
                     header.Add(key, value);
-                    jsTasks.Add(setHeaderFunc(header));
+                    asyncTasks.Add(setHeaderFunc(header));
                 },
                 (key) =>
                 {
                     // On remove header
-                    jsTasks.Add(removeHeaderFunc(key));
+                    asyncTasks.Add(removeHeaderFunc(key));
                 },
                 () =>
                 {
                     // On clear headers
-                    jsTasks.Add(removeAllHeadersFunc(null));
+                    asyncTasks.Add(removeAllHeadersFunc(null));
                 });
 
             // Other data
@@ -231,7 +235,7 @@ namespace Connect.Owin
                     {
                         case "owin.ResponseStatusCode":
                             // Set response status code
-                            jsTasks.Add(setStatusCodeFunc((int)value));
+                            asyncTasks.Add(setStatusCodeFunc((int)value));
                             break;
                         case "owin.ResponseBody":
                             throw new InvalidOperationException("Cannot set 'owin.ResponseBody'. Use provided stream instead.");
@@ -255,22 +259,9 @@ namespace Connect.Owin
 
             // Run the OWIN app
             int owinAppId = GetValueOrDefault<int>(input, "connect-owin.appId", -1);
-            return owinMiddlewares[owinAppId](env).ContinueWith<object>((task) =>
-            {
-                Task.WaitAll(jsTasks.ToArray());
-
-                if (task.IsFaulted)
-                {
-                    throw task.Exception;
-                }
-
-                if (task.IsCanceled)
-                {
-                    throw new InvalidOperationException("The OWIN application has cancelled processing of the request.");
-                }
-
-                return GetValueOrDefault<bool>(env, "connect-owin.continue", false);
-            });
+            await owinMiddlewares[owinAppId](env);
+            await Task.WhenAll(asyncTasks.ToArray());
+            return GetValueOrDefault<bool>(env, "connect-owin.continue", false);
         }
 
         static T GetValueOrDefault<T>(IDictionary<string, object> parameters, string parameter, T defaultValue)
@@ -433,11 +424,18 @@ namespace Connect.Owin
 
         class OwinMiddlewareResponseStream : Stream
         {
-            private Action<byte[], int, int> onWriteAction;
+            private IList<Task> asyncTasks;
+            private Func<byte[], int, int, Task> onWriteAsync;
 
-            public OwinMiddlewareResponseStream(Action<byte[], int, int> onWriteAction)
+            public OwinMiddlewareResponseStream(IList<Task> asyncTasks, Func<byte[], int, int, Task> onWriteAsync)
             {
-                this.onWriteAction = onWriteAction;
+                if (asyncTasks == null)
+                    throw new ArgumentNullException("asyncTasks");
+                if (onWriteAsync == null)
+                    throw new ArgumentNullException("onWriteActionAsync");
+
+                this.asyncTasks = asyncTasks;
+                this.onWriteAsync = onWriteAsync;
             }
 
             public override bool CanRead
@@ -478,7 +476,12 @@ namespace Connect.Owin
 
             public override void Write(byte[] buffer, int offset, int count)
             {
-                if (this.onWriteAction != null) this.onWriteAction(buffer, offset, count);
+                this.asyncTasks.Add(this.WriteAsync(buffer, offset, count, CancellationToken.None));
+            }
+
+            public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            {
+                return this.onWriteAsync(buffer, offset, count);
             }
 
             public override long Seek(long offset, SeekOrigin origin)
