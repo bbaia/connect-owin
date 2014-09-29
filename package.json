@@ -18,7 +18,7 @@
     },
     "author": "Bruno Baia <brbaia@gmail.com> (http://twitter.com/bbaia)",
     "dependencies": {
-        "edge": "0.8.0"
+        "edge": "0.9.3"
     },
     "devDependencies": {
         "supertest": "~0.12.0",
