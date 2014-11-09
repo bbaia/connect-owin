@@ -1,4 +1,4 @@
-# [connect-owin](https://github.com/bbaia/connect-owin/) 
+# [connect-owin](https://github.com/bbaia/connect-owin/) [![Build Status](https://travis-ci.org/bbaia/connect-owin.svg?branch=master)](https://travis-ci.org/bbaia/connect-owin)
 
 Implement node.js [connect middleware](http://www.senchalabs.org/connect/) in .NET using [OWIN](http://owin.org/).
 
