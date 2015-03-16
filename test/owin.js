@@ -1,7 +1,8 @@
 var owin = require('..'),
     connect = require('connect'),
     assert = require('assert'),
-    request = require('supertest');
+    request = require('supertest')
+    fs = require("fs");
 
 describe('owin()', function () {
     it('should require an assembly file', function (done) {
@@ -203,5 +204,22 @@ describe('owin()', function () {
             .post('/')
             .send({ msg: "Hello OWIN!" })
             .expect(200, done);
+    });
+
+    it('should support big response body', function (done) {
+        var app = connect();
+
+        app.use(owin({
+            assemblyFile: 'test/Connect.Owin.Tests.dll',
+            typeName: 'Connect.Owin.Tests.OwinTests',
+            methodName: 'ShouldGetBigResponseBody'
+        }));
+
+        fs.readFile('./test/dummy.txt', "utf8", function (err, data) {
+            if (err) throw err;
+            request(app)
+                .get('/')
+                .expect(200, data, done);
+        });
     });
 });

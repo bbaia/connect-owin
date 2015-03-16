@@ -154,5 +154,25 @@ namespace Connect.Owin.Tests
 
             return Task.FromResult<object>(null);
         }
+
+        // #4
+        public static async Task ShouldGetBigResponseBody(IDictionary<string, object> env)
+        {
+            var fileInfo = new FileInfo("test/dummy.txt");
+            if (fileInfo.Exists)
+            {
+                env["owin.ResponseStatusCode"] = 200;
+                ((IDictionary<string, string[]>)env["owin.ResponseHeaders"]).Add(
+                    "Content-Length", new string[] { fileInfo.Length.ToString() });
+                using (var file = fileInfo.OpenRead())
+                {
+                    await file.CopyToAsync((Stream)env["owin.ResponseBody"]);
+                }
+            }
+            else
+            {
+                env["owin.ResponseStatusCode"] = 404;
+            }
+        }
     }
 }
