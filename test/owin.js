@@ -190,8 +190,9 @@ describe('owin()', function () {
     it('should work with `connect.bodyParser()`', function (done) {
         var app = connect();
 
-        app.use(connect.urlencoded())
-        app.use(connect.json())
+        var bodyParser = require('body-parser');
+        app.use(bodyParser.urlencoded({ extended: false }))
+        app.use(bodyParser.json())
 
         app.use(owin({
             assemblyFile: 'test/Connect.Owin.Tests.dll',
