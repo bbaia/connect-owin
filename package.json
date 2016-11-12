@@ -1,6 +1,6 @@
 {
     "name": "connect-owin",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "description": "Connect middleware for .NET using OWIN",
     "homepage": "https://github.com/bbaia/connect-owin",
     "tags": [
