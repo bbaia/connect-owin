@@ -12,6 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "connect-owin", "connect-owi
 		LICENCE = LICENCE
 		package.json = package.json
 		README.md = README.md
+		webpack.config.js = webpack.config.js
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connect.Owin.Examples.Hello", "examples\hello\Connect.Owin.Examples.Hello.csproj", "{B2806E92-C350-437E-BC30-23961F8B4572}"

@@ -114,6 +114,17 @@ Then go to http://localhost:3000/node. This should display a message from an exp
 If you go to http://localhost:3000/net, you should see a similar message from the .NET OWIN application 
 in `Owin.Connect.Examples.Hello.dll` plugged in as a middleware to the express pipeline.
 
+_Using webpack-dev-server_
+
+A [webpack](https://webpack.github.io/) sample is also provided to allow 
+the `webpack` development server to serve your .NET OWIN application:
+
+	$ npm install -g webpack
+	$ npm install -g webpack-dev-server
+	$ webpack-dev-server --config webpack.config.js
+
+Then go to http://localhost:8080/net. This should display a message from the .NET OWIN application. 
+
 _More samples available @ [connect-owin-samples](https://github.com/bbaia/connect-owin-samples/)_
 
 ### Running tests
